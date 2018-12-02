@@ -1,1 +1,0 @@
-server/Linking.java是入口文件，使用javac和java分别编译和启动即可。
