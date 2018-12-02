@@ -1,12 +1,17 @@
 @echo off
 title Sunflower
 color 35
-rem author:yelloxing
+REM author:yelloxing
 
 echo 启动服务器;
 cd server
-javac -sourcepath lib/jdbc.jar Linking.java;
-java Linking;
-cd ..
 
+REM 编译代码
+javac -sourcepath ../lib/jdbc.jar \
+    Sqler.java \
+    Linking.java;
+
+java -classpath $CLASSPATH:../lib/jdbc.jar \
+    Linking;
+cd ..
 exit
