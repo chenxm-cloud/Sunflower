@@ -13,7 +13,7 @@
 * Copyright yelloxing
 * Released under the MIT license
 * 
-* Date:Sat Dec 01 2018 21:22:37 GMT+0800 (GMT+08:00)
+* Date:Mon Dec 10 2018 16:39:45 GMT+0800 (GMT+08:00)
 */
 (function (global, factory) {
 
@@ -68,11 +68,20 @@ var _regexp = {
 // 记录需要使用xlink命名空间常见的xml属性
 var _xlink = ["href", "title", "show", "type", "role", "actuate"];
 
+// 嵌入内部提供者
+var _provider = {};
+
+var _out_sizzle;
+_provider.$sizzleProvider = function (config) {
+    _out_sizzle = config;
+};
+
 // 负责查找结点
 function _sizzle(selector, context) {
 
     var temp = [], flag;
     if (typeof selector === 'string') {
+        if (typeof _out_sizzle === 'function') return _out_sizzle(selector, context);
         // 去掉回车，空格和换行
         selector = (selector + "").trim().replace(/[\n\f\r]/g, '');
 
@@ -204,7 +213,7 @@ function _toNode(str) {
     // 如果不是svg元素，重新用html命名空间创建
     // 目前结点只考虑了svg元素和html元素
     // 如果考虑别的元素类型需要修改此处判断方法
-    if (child.tagName == 'canvas' || /[A-Z]/.test(child.tagName)) {
+    if (!child || child.tagName == 'canvas' || /[A-Z]/.test(child.tagName)) {
         frame = document.createElement("div");
         frame.innerHTML = str;
         childNodes = frame.childNodes;
@@ -457,6 +466,97 @@ clay.prototype.position = function (event) {
 
 };
 
+// 判断浏览器类型
+var _browser = (function () {
+
+    var userAgent = window.navigator.userAgent;
+    if (userAgent.indexOf("Opera") > -1 || userAgent.indexOf("OPR") > -1) {
+        return "Opera";
+    }
+    if ((userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1) ||
+        (userAgent.indexOf("Trident") > -1 && userAgent.indexOf("rv:11.0") > -1)) {
+        return "IE";
+    }
+    if (userAgent.indexOf("Edge") > -1) {
+        return "Edge";
+    }
+    if (userAgent.indexOf("Firefox") > -1) {
+        return "Firefox";
+    }
+    if (userAgent.indexOf("Chrome") > -1) {
+        return "Chrome";
+    }
+    if (userAgent.indexOf("Safari") > -1) {
+        return "Safari";
+    }
+    return -1;
+
+})();
+
+// 判断IE浏览器版本
+var _IE = (function () {
+
+    // 如果不是IE浏览器直接返回
+    if (_browser != 'IE') return -1;
+
+    var userAgent = window.navigator.userAgent;
+    if (userAgent.indexOf("Trident") > -1 && userAgent.indexOf("rv:11.0") > -1) return 11;
+
+    if (/MSIE 10/.test(userAgent)) return 10;
+    if (/MSIE 9/.test(userAgent)) return 9;
+    if (/MSIE 8/.test(userAgent)) return 8;
+    if (/MSIE 7/.test(userAgent)) return 7;
+
+    // IE版本小于7
+    return 6;
+})();
+
+// 针对不支持的浏览器给出提示
+if (_IE < 9 && _browser == 'IE') throw new Error('IE browser version is too low, minimum support IE9!');
+
+// 针对IE浏览器进行加强
+if (_IE >= 9) {
+    var _innerHTML = {
+        get: function () {
+            var frame = document.createElement("div"), i;
+            for (i = 0; i < this.childNodes.length; i++) {
+                // 深度克隆，克隆节点以及节点下面的子内容
+                frame.appendChild(this.childNodes[i].cloneNode(true));
+            }
+            return frame.innerHTML;
+        },
+        set: function (svgstring) {
+            var frame = document.createElement("div"), i;
+            frame.innerHTML = svgstring;
+            var toSvgNode = function (htmlNode) {
+                var svgNode = document.createElementNS(_namespace.svg, (htmlNode.tagName + "").toLowerCase());
+                var attrs = htmlNode.attributes, i, svgNodeClay = clay(svgNode);
+                for (i = 0; attrs && i < attrs.length; i++) {
+                    svgNodeClay.attr(attrs[i].nodeName, htmlNode.getAttribute(attrs[i].nodeName));
+                }
+                return svgNode;
+            };
+            var rslNode = toSvgNode(frame.firstChild);
+            (function toSVG(pnode, svgPnode) {
+                var node = pnode.firstChild;
+                if (node && node.nodeType == 3) {
+                    svgPnode.textContent = pnode.innerText;
+                    return;
+                }
+                while (node) {
+                    var svgNode = toSvgNode(node);
+                    svgPnode.appendChild(svgNode);
+                    if (node.firstChild) toSVG(node, svgNode);
+                    node = node.nextSibling;
+                }
+            })(frame.firstChild, rslNode);
+            this.appendChild(rslNode);
+        }
+    };
+    Object.defineProperty(SVGElement.prototype, 'innerHTML', _innerHTML);
+    Object.defineProperty(SVGSVGElement.prototype, 'innerHTML', _innerHTML);
+}
+
 var _clock = {
     //当前正在运动的动画的tick函数堆栈
     timers: [],
@@ -569,7 +669,49 @@ clay.loop = function (datas, callback) {
     return clay;
 };
 
+var _ajaxConfig = {
+    "headers": {},
+    "timeout": 3000,
+    "context": "",
+    "request": function (config) {
+        return config;
+    },
+    "success": function (data, doback) {
+        if (typeof doback == 'function') {
+            doback(data);
+        }
+    },
+    "error": function (error, doback) {
+        if (typeof doback == 'function') {
+            doback(error);
+        }
+    }
+};
+_provider.$httpProvider = function (config) {
+    var row;
+    for (row in config) {
+        _ajaxConfig[row] = config[row];
+    }
+};
+
+/**
+ * XMLHttpRequest
+ *
+ * config={
+ * "type":"POST"|"GET",
+ * "url":地址,
+ * "success":成功回调(非必须),
+ * "error":错误回调(非必须),
+ * "fileload":文件传输进度回调(非必须),
+ * "timeout":超时时间,
+ * "header":{
+ *          //请求头
+ *      },
+ * "data":post时带的数据（非必须）
+ * }
+ */
 var _ajax = function (config) {
+    config = _ajaxConfig.request(config);
     var i;
 
     // 获取xhr对象
@@ -580,10 +722,11 @@ var _ajax = function (config) {
         new ActiveXObject("Microsoft.XMLHTTP");
 
     // 打开请求地址
+    if (!/^\//.test(config.url)) config.url = _ajaxConfig.context + "" + config.url;
     xhr.open(config.type, config.url, true);
 
     // 设置超时时间
-    xhr.timeout = config.timeout;
+    xhr.timeout = config.timeout || _ajaxConfig.timeout;
 
     // 文件传递进度回调
     if (typeof config.fileload == 'function') {
@@ -596,29 +739,31 @@ var _ajax = function (config) {
     }
 
     // 请求成功回调
-    if (typeof config.success == 'function') {
-        xhr.onload = function () {
-            config.success({
-                "response": xhr.response,
-                "status": xhr.status,
-                "header": xhr.getAllResponseHeaders()
-            });
-        };
-    }
+    xhr.onload = function () {
+        _ajaxConfig.success({
+            "response": xhr.response,
+            "status": xhr.status,
+            "header": xhr.getAllResponseHeaders()
+        }, config.success);
+    };
 
     // 错误回调
-    if (typeof config.error == 'function') {
-        // 请求中出错回调
-        xhr.onerror = function () {
-            config.error({ "type": "error" });
-        };
-        // 请求超时回调
-        xhr.ontimeout = function () {
-            config.error({ "type": "timeout" });
-        };
-    }
+    // 请求中出错回调
+    xhr.onerror = function () {
+        _ajaxConfig.error({
+            "type": "error"
+        }, config.error);
+    };
+    // 请求超时回调
+    xhr.ontimeout = function () {
+        _ajaxConfig.error({
+            "type": "timeout"
+        }, config.error);
+    };
 
     // 配置请求头
+    for (i in _ajaxConfig.headers)
+        xhr.setRequestHeader(i, _ajaxConfig.headers[i]);
     for (i in config.header)
         xhr.setRequestHeader(i, config.header[i]);
 
@@ -634,7 +779,7 @@ clay.post = function (header, timeout) {
             "url": url,
             "success": callback,
             "error": errorback,
-            "timeout": timeout || 300,
+            "timeout": timeout,
             "header": header || {},
             "data": param ? JSON.stringify(param) : ""
         });
@@ -651,7 +796,7 @@ clay.get = function (header, timeout) {
             "url": url,
             "success": callback,
             "error": errorback,
-            "timeout": timeout || 300,
+            "timeout": timeout,
             "header": header || {}
         });
         return get;
@@ -1100,6 +1245,30 @@ clay.cardinal = function () {
     return cardinal;
 };
 
+clay.catmullRom = function () {
+
+    var scope = {};
+
+    // deep为偏移量  deep的取值范围为[0,1]，deep取0将得出p1点，deep取1将得出p2点
+    var catmull = function (deep) {
+        var deep2 = deep * deep, deep3 = deep2 * deep;
+        return [
+            0.5 * (scope.x[0] * deep3 + scope.x[1] * deep2 + scope.x[2] * deep + scope.x[3]),
+            0.5 * (scope.y[0] * deep3 + scope.y[1] * deep2 + scope.y[2] * deep + scope.y[3])
+        ];
+    };
+
+    // 设置一组点
+    // 四个点 p1,p2,p3,p4
+    catmull.setP = function (p1, p2, p3, p4) {
+        scope.x = clay.Matrix4([-1, 2, -1, 0, 3, -5, 0, 2, -3, 4, 1, 0, 1, -1, 0, 0]).use(p1[0], p2[0], p3[0], p4[0]);
+        scope.y = clay.Matrix4([-1, 2, -1, 0, 3, -5, 0, 2, -3, 4, 1, 0, 1, -1, 0, 0]).use(p1[1], p2[1], p3[1], p4[1]);
+        return catmull;
+    };
+
+    return catmull;
+};
+
 var
     // 围绕X轴旋转
     _rotateX = function (deg, x, y, z) {
@@ -1208,140 +1377,6 @@ clay.scale = function (cx, cy, times, x, y) {
         (times * (x - cx) + cx).toFixed(7),
         (times * (y - cy) + cy).toFixed(7)
     ];
-};
-
-/**
- * @param {array} electrons 电子集合
- * 每个电子的保存结构为:
- * [x,y]
- *
- * @return {array} cElectrons 库仑力电子集合
- * 每个电子的保存结构为：
- * [x,y,lawx,lawy]，最后二个参数是计算的x和y方向的库仑力
- */
-var _coulomb_law = function (electrons) {
-    var
-        // Barnes-Hut近似精度平方
-        theta2 = 0.81,
-        // 四叉树
-        Q_Tree = {},
-        i, j;
-
-    // 求解出坐标最值
-    var minX = electrons[0][0], minY = electrons[0][1], maxX = electrons[0][0], maxY = electrons[0][1];
-    for (i = 1; i < electrons.length; i++) {
-        if (electrons[i][0] < minX) minX = electrons[i][0];
-        else if (electrons[i][0] > maxX) maxX = electrons[i][0];
-        if (electrons[i][1] < minY) minY = electrons[i][1];
-        else if (electrons[i][1] > maxY) maxY = electrons[i][1];
-    }
-
-    // 生成四叉树
-    (function calc_Q_Tree(nodes, id, ix, ax, iy, ay) {
-        var mx = (ix + ax) * 0.5,
-            my = (iy + ay) * 0.5;
-        Q_Tree[id] = {
-            "num": nodes.length,
-            "cx": mx,
-            "cy": my,
-            "w": ax - ix,
-            "h": ay - iy,
-            // 无法或无需分割，包含的是结点
-            "e": [],
-            // 分割的子区域，包含的是区域id
-            "children": []
-        };
-        if (nodes.length == 1) {
-            Q_Tree[id].e = [nodes[0]];
-            return;
-        }
-        var ltNodes = [], rtNodes = [], lbNodes = [], rbNodes = [];
-        for (i = 0; i < nodes.length; i++) {
-            // 分割线上的
-            if (
-                nodes[i][0] == mx || nodes[i][1] == my ||
-                nodes[i][0] == ix || nodes[i][0] == ax ||
-                nodes[i][1] == iy || nodes[i][1] == ay
-            ) Q_Tree[id].e.push(nodes[i]);
-            // 更小的格子里
-            else if (nodes[i][0] < mx) {
-                if (nodes[i][1] < my) ltNodes.push(nodes[i]); else lbNodes.push(nodes[i]);
-            } else {
-                if (nodes[i][1] < my) rtNodes.push(nodes[i]); else rbNodes.push(nodes[i]);
-            }
-        }
-        // 启动子区域分割
-        if (ltNodes.length > 0) {
-            Q_Tree[id].children.push(id + "1");
-            calc_Q_Tree(ltNodes, id + "1", ix, mx, iy, my);
-        }
-        if (rtNodes.length > 0) {
-            Q_Tree[id].children.push(id + "2");
-            calc_Q_Tree(rtNodes, id + "2", mx, ax, iy, my);
-        }
-        if (lbNodes.length > 0) {
-            Q_Tree[id].children.push(id + "3");
-            calc_Q_Tree(lbNodes, id + "3", ix, mx, my, ay);
-        }
-        if (rbNodes.length > 0) {
-            Q_Tree[id].children.push(id + "4");
-            calc_Q_Tree(rbNodes, id + "4", mx, ax, my, ay);
-        }
-
-    })(electrons, 'Q', minX, maxX, minY, maxY);
-
-    // 求解库仑力
-    var treeNode, eleNode, law = [], d2, r2,
-        /**
-         * q1、x1、y1：目标作用电子（或电子团）的电荷、x坐标、y坐标
-         * q2、x2、y2：目标计算电子的电荷、x坐标、y坐标
-         */
-        doLaw = function (q1, x1, y1, x2, y2) {
-            if (x1 == x2 && y1 == y2)
-                // 重叠的点忽略
-                return [0, 0];
-            var f = q1 / ((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-            var d = Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-            return [
-                f * (x2 - x1) / d,
-                f * (y2 - y1) / d
-            ];
-        };
-
-    var calc_Coulomb_Law = function (treeName, i) {
-        treeNode = Q_Tree[treeName];
-        eleNode = electrons[i];
-        // Barnes-Hut加速计算
-        // 区域面积
-        d2 = treeNode.cx * treeNode.cy;
-        // '质心'间距离平方
-        r2 = (eleNode[0] - treeNode.cx) * (eleNode[0] - treeNode.cx) + (eleNode[1] - treeNode.cy) * (eleNode[1] - treeNode.cy);
-        if (d2 / r2 <= theta2) {
-            // 默认每个电荷数量是1，且都同性
-            return doLaw(treeNode.num, treeNode.cx, treeNode.cy, eleNode[0], eleNode[1]);
-        } else {
-            var result_law = [0, 0], temp_law;
-            for (j = 0; j < treeNode.e.length; j++) {
-                temp_law = doLaw(1, treeNode.e[j][0], treeNode.e[j][1], eleNode[0], eleNode[1]);
-                result_law[0] += temp_law[0];
-                result_law[1] += temp_law[1];
-            }
-            for (j = 0; j < treeNode.children.length; j++) {
-                temp_law = calc_Coulomb_Law(treeNode.children[j], i);
-                result_law[0] += temp_law[0];
-                result_law[1] += temp_law[1];
-            }
-            return result_law;
-        }
-    };
-    for (i = 0; i < electrons.length; i++) {
-        law = calc_Coulomb_Law('Q', i);
-        electrons[i][2] = law[0];
-        electrons[i][3] = law[1];
-    }
-
-    return electrons;
-
 };
 
 // 绘图方法挂载钩子
@@ -1737,6 +1772,17 @@ clay.svg.text = function () {
         function (
             x, y, text, deg, horizontal, vertical, color, fontSize
         ) {
+
+            // 针对IE和edge特殊计算
+            if (_browser == 'IE' || _browser == 'Edge') {
+                if (vertical == "top") {
+                    y += fontSize;
+                }
+                if (vertical == "middle") {
+                    y += fontSize * 0.5;
+                }
+            }
+
             var rotate = !deg ? "" : "transform='rotate(" + deg + "," + x + "," + y + ")'";
             return clay('<text fill=' + color + ' x="' + x + '" y="' + y + '" ' + rotate + '>' + text + '</text>').css({
                 // 文本水平
@@ -1747,8 +1793,15 @@ clay.svg.text = function () {
                 // 本垂直
                 "dominant-baseline": {
                     "top": "text-before-edge",
-                    "bottom": "text-after-edge"
-                }[vertical] || "middle",
+                    "bottom": {
+                        "Safari": "auto"
+                    }[_browser] ||
+                        "ideographic"
+                }[vertical] ||
+                    {
+                        "Firefox": "middle"
+                    }[_browser] ||
+                    "central",
                 "font-size": fontSize + "px",
                 "font-family": "sans-serif"
             });
@@ -1764,6 +1817,7 @@ clay.canvas.text = function (selector, config) {
             _canvas(selector, config, _text, function (
                 x, y, text, deg, horizontal, vertical, color, fontSize
             ) {
+
                 obj._p.save();
                 obj._p.beginPath();
                 obj._p.textAlign = {
@@ -1877,6 +1931,88 @@ clay.canvas.bezier = function (selector, config) {
                     endP[0], endP[1]);
                 return obj._p;
 
+            });
+
+    return obj;
+
+};
+
+// 多边形
+var _polygon = function (painter) {
+
+    var scope = {
+        /*
+         * 连接两点的曲线其实使用path的多段(L x,y)拼接而成，这些x,y就是由插值算法计算得出
+         * 设置d可以设置精度，d越大，精度越高，但是相应的计算量也会增加（计算时间增加）
+         */
+        d: 100
+    },
+        // 多边形插值方法
+        catmullRom = clay.catmullRom();
+
+    var polygon = function (point) {
+        var p = point.slice();
+        p.push(p[0]);
+
+        var l = p.length;
+        //添加首尾控制点，用于绘制完整曲线
+        p.unshift(p[l - 2]);
+        p.push(p[2]);
+
+        var i = 1,
+            temp = "M" + p[1][0] + " " + p[1][1] + " ";
+        for (; i < l; i++) {
+            catmullRom.setP(p[i - 1], p[i], p[i + 1], p[i + 2]);
+            temp = painter(catmullRom, 0, 1 / scope.d, temp);
+        }
+        // 闭合
+        if (typeof temp == 'string') temp += " Z"; else temp.closePath();
+        return temp;
+    };
+
+    polygon.setNum = function (num) {
+        //设置精度（即将p1,p2两点间的曲线段分成的段数）
+        scope.d = num;
+        return polygon;
+    };
+
+    return polygon;
+
+};
+
+// 采用SVG绘制多边形
+clay.svg.polygon = function () {
+    return _polygon(
+        function (
+            calcFn, start, dx, temp
+        ) {
+            for (; start <= 1; start += dx) {
+                var point = calcFn(start);
+                temp = temp + " L" + point[0] + "," + point[1];
+            }
+            return temp;
+        }
+    );
+};
+
+// 采用Canvas绘制多边形
+clay.canvas.polygon = function (selector, config) {
+
+    var key,
+        obj =
+            _canvas(selector, config, _polygon, function (
+                calcFn, start, dx, temp
+            ) {
+
+                var point = calcFn(start);
+                if (typeof temp == 'string') {
+                    obj._p.moveTo(point[0], point[1]);
+                }
+                for (; start <= 1; start += dx) {
+                    point = calcFn(start);
+                    obj._p.lineTo(point[0], point[1]);
+                }
+                return obj._p;
             });
 
     return obj;
@@ -2093,79 +2229,6 @@ clay.treeLayout = function () {
 
 };
 
-clay.forceLayout = function () {
-
-    var force = function () {
-
-    };
-
-    return force;
-};
-
-clay.packLayout = function () {
-
-    var scope = {
-        // 包含图中心
-        c: [100, 100],
-        // 包含图尺寸
-        r: 100
-    },
-        // 记录边界圆，用于计算新加圆的位置
-        borderCircle = [],
-        /**
-         * 用于计算新圆的位置
-         */
-        calcNewPosition = function (r) {
-
-        },
-        // 由于初始化计算的时候没办法考虑最佳尺寸
-        // 此处再计算，根据最优尺寸，计算出最终位置
-        resetPosition = function () {
-
-        };
-
-    /**
-     *
-     * @param {any} initPack 可以被配置方法解析的数据
-     */
-    var pack = function (initPack) {
-
-        return pack;
-    };
-
-    pack.setRoot = function () {
-
-    };
-
-    pack.setChild = function () {
-
-    };
-
-    pack.setId = function () {
-
-    };
-
-    // 设置具体的绘图方法
-    pack.drawer = function (drawerback) {
-        scope.p = drawerback;
-        return pack;
-    };
-
-    // 设置包含图的圆心
-    pack.setcenter = function (cx, cy) {
-        scope.c = [cx, cy];
-        return pack;
-    };
-
-    // 设置包含图的圆半径
-    pack.setRadius = function (r) {
-        scope.r = r;
-        return pack;
-    };
-
-    return pack;
-};
-
 clay.pieLayout = function () {
     var scope = {
         // 圆心
@@ -2304,6 +2367,88 @@ clay.pieLayout = function () {
     };
 
     return pie;
+};
+
+// 可注入内部服务
+var _service = {
+    "$browser": {
+        "type": _browser,
+        "IE": _IE
+    }
+};
+
+// 常用方法
+var _this = {
+    "toNode": _toNode
+};
+
+/**
+ * 确定应用目标以后
+ * 启动编译并应用
+ */
+clay.prototype.use = function (name, config) {
+
+    // 销毁之前的
+    if (this[0]._component) _component[this[0]._component].beforeDestory.apply(_this, [this]);
+
+    // 使用组件前，在结点中记录一下
+    this[0]._component = name;
+
+    // 添加监听方法
+    config.$watch = function (key, doback) {
+        var val = config[key];
+        Object.defineProperty(config, key, {
+            get: function () {
+                return val;
+            },
+            set: function (newVal) {
+                doback(newVal, val);
+                val = newVal;
+            }
+        });
+    };
+
+    // 组件创建前
+    if (typeof _component[name].beforeCreate == 'function') _component[name].beforeCreate.apply(_this, [this]);
+
+    // 启动组件
+    _component[name].link.apply(_this, [this, config]);
+    return this;
+};
+
+// 主动销毁
+clay.prototype.destory = function () {
+    if (this[0]._component) _component[this[0]._component].beforeDestory.apply(_this, [this]);
+    return this;
+};
+
+var _component = {
+    // 挂载组件
+};
+
+/**
+ * 记录挂载的组件
+ * 包括预处理
+ */
+clay.component = function (name, content) {
+    var param = [], i;
+    if (content.constructor != Array) content = [content];
+    for (i = 0; i < content.length - 1; i++) {
+        param[i] = _service[content[i]] || undefined;
+    }
+    _component[name] = content[content.length - 1].apply(this, param);
+    return clay;
+};
+
+clay.config = function ($provider, content) {
+    var param = [], i;
+    if (content.constructor != Array) content = [content];
+    for (i = 0; i < content.length - 1; i++) {
+        param[i] = _service[content[i]] || undefined;
+    }
+    var config = content[content.length - 1].apply(this, param);
+    _provider[$provider](config);
+    return clay;
 };
 
     clay.version = '1.4.0';
