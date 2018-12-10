@@ -13,7 +13,7 @@
 * Copyright yelloxing
 * Released under the MIT license
 * 
-* Date:Mon Dec 10 2018 16:39:45 GMT+0800 (GMT+08:00)
+* Date:Mon Dec 10 2018 20:25:02 GMT+0800 (GMT+08:00)
 */
 (function (global, factory) {
 
@@ -437,16 +437,49 @@ clay.prototype.bind = function (eventType, callback) {
 
 };
 
-clay.prototype.unbind = function (eventType, callback) {
+clay.prototype.trigger = function (eventType) {
+    var flag, event;
 
-    var flag;
-    if (window.detachEvent)
-        for (flag = 0; flag < this.length; flag++)
-            this[flag].detachEvent("on" + eventType, callback);
-    else
-        for (flag = 0; flag < this.length; flag++)
-            this[flag].removeEventListener(eventType, callback, false);
+    //创建event的对象实例。
+    if (document.createEventObject) {
+        // IE浏览器支持fireEvent方法
+        event = document.createEventObject();
+        for (flag = 0; flag < this.length; flag++) {
+            this[flag].fireEvent('on' + eventType, event);
+        }
+    }
+
+    // 其他标准浏览器使用dispatchEvent方法
+    else {
+        event = document.createEvent('HTMLEvents');
+        // 3个参数：事件类型，是否冒泡，是否阻止浏览器的默认行为
+        event.initEvent(eventType, true, false);
+        for (flag = 0; flag < this.length; flag++) {
+            this[flag].dispatchEvent(event);
+        }
+    }
+
     return this;
+};
+
+/* 取消冒泡事件 */
+clay.cancelBubble = function (event) {
+    if (event && event.stopPropagation) { //这是其他非IE浏览器
+        event.stopPropagation();
+    } else {
+        event.cancelBubble = true;
+    }
+    return clay;
+};
+
+/* 阻止默认事件 */
+clay.preventDefault = function (event) {
+    if (event && event.stopPropagation) { //这是其他非IE浏览器
+        event.preventDefault();
+    } else {
+        event.returnValue = false;
+    }
+    return clay;
 };
 
 /*
@@ -1420,12 +1453,15 @@ var _arc = function (painter) {
 
     var scope = {
         c: [0, 0],
-        r: [100, 140]
+        r: [100, 140],
+        t: []
     };
 
     // r1和r2，内半径和外半径
     // beginA起点弧度，rotateA旋转弧度式
     var arc = function (beginA, rotateA, r1, r2) {
+        if (rotateA > Math.PI * 2) rotateA = Math.PI * 2;
+        if (rotateA < -Math.PI * 2) rotateA = -Math.PI * 2;
 
         // 保证逆时针也是可以的
         if (rotateA < 0) {
@@ -1461,7 +1497,8 @@ var _arc = function (painter) {
             temp[0] + scope.c[0], temp[1] + scope.c[1],
             temp[4] + scope.c[0], temp[5] + scope.c[1],
             temp[2] + scope.c[0], temp[3] + scope.c[1],
-            temp[6] + scope.c[0], temp[7] + scope.c[1]
+            temp[6] + scope.c[0], temp[7] + scope.c[1],
+            scope.t, (r2 - r1) * 0.5
         );
     };
 
@@ -1474,6 +1511,12 @@ var _arc = function (painter) {
     // 设置弧中心
     arc.setCenter = function (x, y) {
         scope.c = [x, y];
+        return arc;
+    };
+
+    // 设置起点和终点样式
+    arc.isCircle = function (beginCircle, endCircle) {
+        scope.t = [beginCircle, endCircle];
         return arc;
     };
 
@@ -1491,16 +1534,26 @@ clay.svg.arc = function () {
             begInnerX, begInnerY,
             begOuterX, begOuterY,
             endInnerX, endInnerY,
-            endOuterX, endOuterY
+            endOuterX, endOuterY,
+            t, r
         ) {
             var f = (endA - beginA) > Math.PI ? 1 : 0,
                 d = "M" + begInnerX + " " + begInnerY;
+            if (r < 0) r = -r;
             d +=
                 // 横半径 竖半径 x轴偏移角度 0小弧/1大弧 0逆时针/1顺时针 终点x 终点y
                 "A" + rmin + " " + rmin + " 0 " + f + " 1 " + endInnerX + " " + endInnerY;
-            d += "L" + endOuterX + " " + endOuterY;
+            // 结尾
+            if (!t[1])
+                d += "L" + endOuterX + " " + endOuterY;
+            else
+                d += "A" + r + " " + r + " " + " 0 1 0 " + endOuterX + " " + endOuterY;
             d += "A" + rmax + " " + rmax + " 0 " + f + " 0 " + begOuterX + " " + begOuterY;
-            d += "L" + begInnerX + " " + begInnerY;
+            // 开头
+            if (!t[0])
+                d += "L" + begInnerX + " " + begInnerY;
+            else
+                d += "A" + r + " " + r + " " + " 0 1 0 " + begInnerX + " " + begInnerY;
             return d;
         }
     );
@@ -1521,16 +1574,26 @@ clay.canvas.arc = function (selector, config) {
                 begInnerX, begInnerY,
                 begOuterX, begOuterY,
                 endInnerX, endInnerY,
-                endOuterX, endOuterY
+                endOuterX, endOuterY,
+                t, r
             ) {
+                if (r < 0) r = -r;
                 obj._p.beginPath();
                 obj._p.moveTo(begInnerX, begInnerY);
                 obj._p.arc(
                     // (圆心x，圆心y，半径，开始角度，结束角度，true逆时针/false顺时针)
                     cx, cy, rmin, beginA, endA, false);
-                obj._p.lineTo(endOuterX, endOuterY);
+                // 结尾
+                if (!t[1])
+                    obj._p.lineTo(endOuterX, endOuterY);
+                else
+                    obj._p.arc((endInnerX + endOuterX) * 0.5, (endInnerY + endOuterY) * 0.5, r, endA - Math.PI, endA, true);
                 obj._p.arc(cx, cy, rmax, endA, beginA, true);
-                obj._p.lineTo(begInnerX, begInnerY);
+                // 开头
+                if (!t[0])
+                    obj._p.lineTo(begInnerX, begInnerY);
+                else
+                    obj._p.arc((begInnerX + begOuterX) * 0.5, (begInnerY + begOuterY) * 0.5, r, beginA, beginA - Math.PI, true);
                 return obj._p;
 
             });
