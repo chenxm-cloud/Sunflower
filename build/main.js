@@ -8489,32 +8489,19 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 __WEBPACK_IMPORTED_MODULE_2_clay_core___default()(window);
 
 // 配置http请求
-clay.config("$httpProvider", ["$browser", function ($browser) {
-    return {
-        "headers": {
-            'Content-Type': 'application/json'
-        },
-        "timeout": 7000,
-        "context": "/data/",
-        "request": function (config) {
-            return config;
-        },
-        "success": function (data, doback) {
-            doback(data);
-        },
-        "error": function (error, doback) {
-            doback(error);
-        }
-    };
-}]);
+clay.config("$httpProvider", ["$browser", $browser => ({
+    "headers": {
+        'Content-Type': 'application/json'
+    },
+    "timeout": 7000,
+    "context": "/src/assets/",
+    "request": config => config,
+    "success": (data, doback) => doback(data),
+    "error": (error, doback) => doback(error)
+})]);
 
 // 加强选择器
-clay.config("$sizzleProvider", function () {
-    return function (selector, context) {
-        // 选择sizzle.js作为扩展
-        return __WEBPACK_IMPORTED_MODULE_3_sizzle___default()(selector, context);
-    };
-});
+clay.config("$sizzleProvider", () => (selector, context) => __WEBPACK_IMPORTED_MODULE_3_sizzle___default()(selector, context));
 
 // 引入路由
 
@@ -8522,12 +8509,10 @@ clay.config("$sizzleProvider", function () {
 //根对象
 var vm = new __WEBPACK_IMPORTED_MODULE_0_vue__["a" /* default */]({
     //挂载点
-    el: document.getElementById('root'),
+    el: $$('#root')[0],
     router: __WEBPACK_IMPORTED_MODULE_5__router__["a" /* default */],
     // 启动vue
-    render: function (createElement) {
-        return createElement(__WEBPACK_IMPORTED_MODULE_1__App_vue___default.a);
-    }
+    render: createElement => createElement(__WEBPACK_IMPORTED_MODULE_1__App_vue___default.a)
 });
 
 /***/ }),

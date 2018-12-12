@@ -9,32 +9,21 @@ import '../node_modules/easycss-core/build/easycss.min.css';
 render(window);
 
 // 配置http请求
-clay.config("$httpProvider", ["$browser", function ($browser) {
-    return {
+clay.config("$httpProvider", ["$browser", $browser =>
+    ({
         "headers": {
             'Content-Type': 'application/json'
         },
         "timeout": 7000,
-        "context": "/data/",
-        "request": function (config) {
-            return config;
-        },
-        "success": function (data, doback) {
-            doback(data);
-        },
-        "error": function (error, doback) {
-            doback(error);
-        }
-    };
-}]);
+        "context": "/src/assets/",
+        "request": config => config,
+        "success": (data, doback) => doback(data),
+        "error": (error, doback) => doback(error)
+    })
+]);
 
 // 加强选择器
-clay.config("$sizzleProvider", function () {
-    return function (selector, context) {
-        // 选择sizzle.js作为扩展
-        return Sizzle(selector, context);
-    };
-});
+clay.config("$sizzleProvider", () => (selector, context) => Sizzle(selector, context));
 
 // 引入路由
 import routerObj from './router';
@@ -42,10 +31,8 @@ import routerObj from './router';
 //根对象
 var vm = new Vue({
     //挂载点
-    el: document.getElementById('root'),
+    el: $$('#root')[0],
     router: routerObj,
     // 启动vue
-    render: function (createElement) {
-        return createElement(App);
-    }
+    render: createElement => createElement(App)
 });
