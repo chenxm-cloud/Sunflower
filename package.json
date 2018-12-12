@@ -4,8 +4,10 @@
   "description": "开发的数据可视化完整用例",
   "main": "build/main.js",
   "scripts": {
-    "start": "node_modules/.bin/webpack-dev-server --inline --hot --port 20000",
-    "release": "node_modules/.bin/webpack"
+    "dev": "node_modules/.bin/webpack-dev-server --inline --hot --port 20000",
+    "server": "node server/index.js",
+    "release": "node_modules/.bin/webpack",
+    "start": "npm install && npm run server"
   },
   "repository": {
     "type": "git",
