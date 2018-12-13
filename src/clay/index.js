@@ -11,7 +11,7 @@ clay.config("$httpProvider", ["$browser", $browser =>
             'Content-Type': 'application/json'
         },
         "timeout": 7000,
-        "context": "/src/assets/",
+        "context": "/database/",
         "request": config => config,
         "success": (data, doback) => doback(data),
         "error": (error, doback) => doback(error)

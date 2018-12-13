@@ -1,5 +1,5 @@
 .git
 .DS_Store
 .project
-*.class
 node_modules
+.vscode
