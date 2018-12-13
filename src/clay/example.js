@@ -16,17 +16,17 @@ clay.component("example", ["$browser", function ($browser) {
             element.attr('width', '900').attr('height', '100');
 
             // 配置画笔
-            var layerManger = $$('canvas').layer();
-            $$.canvas.text(layerManger.painter("title")).setColor('red')(450, 20, $scope.title);
+            var layerManger = clay('canvas').layer();
+            clay.canvas.text(layerManger.painter("title")).setColor('red')(450, 20, $scope.title);
 
-            var rect = $$.canvas.rect(layerManger.painter("rect"), {
+            var rect = clay.canvas.rect(layerManger.painter("rect"), {
                 "fillStyle": "blue"
             })
                 .setSize(40)
                 .setType("LR");
 
             var drawLine = function (od, nd) {
-                $$.animation(function (deep) {
+                clay.animation(function (deep) {
                     layerManger.clean("rect");
                     rect(50, 65, ((nd - od) * deep + od) * 80).fill();
                     layerManger.update();

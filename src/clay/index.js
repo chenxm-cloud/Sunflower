@@ -2,7 +2,7 @@ import render from 'clay-core';
 import Sizzle from 'sizzle';
 
 // 启动clay
-render(window);
+let clay=render(window);
 
 // 配置http请求
 clay.config("$httpProvider", ["$browser", $browser =>
