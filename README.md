@@ -1,14 +1,8 @@
-# Sunflower - 基于[clay.js](https://github.com/yelloxing/clay)开发的数据可视化完整用例
+# Sunflower - 基于[clay-core](https://github.com/yelloxing/clay)开发的数据可视化完整用例
 
 ### 基本说明
 
-首先，clay.js的建立是为了提供更友好的数据可视化（2D和3D）解决方案；本项目的建立是为了在使用中给于前者更多的建议和经验支持，以便在推出第一个版本以后，不会在接口定义上发生过大的变动。
-
-### 相关链接
-
-*   clay.js项目地址：https://github.com/yelloxing/clay
-*   clay.js接口文档：https://yelloxing.github.io/clay/doc/
-*   针对clay.js意见和交流：https://github.com/yelloxing/clay/issues
+首先，clay-core的建立是为了提供更友好的数据可视化（2D和3D）解决方案；本项目的建立是为了在使用中给于前者更多的建议和经验支持，以便在推出第一个版本以后，不会在接口定义上发生过大的变动。
 
 ### 免责声明
 
