@@ -114,7 +114,11 @@ function processRequest(request, response) {
 
         //读取文件的函数
         function readFile(filePath, contentType) {
-            response.writeHead(200, { "content-type": contentType });
+            console.log(filePath);
+            response.writeHead(200, {
+                "content-type": contentType,
+                "Access-Control-Allow-Origin": "http://localhost:20000"
+            });
             //建立流对象，读文件
             var stream = fs.createReadStream(filePath);
             //错误处理

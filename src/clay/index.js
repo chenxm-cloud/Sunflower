@@ -2,16 +2,14 @@ import render from 'clay-core';
 import Sizzle from 'sizzle';
 
 // 启动clay
-let clay=render(window);
+let clay = render(window);
 
 // 配置http请求
 clay.config("$httpProvider", ["$browser", $browser =>
     ({
-        "headers": {
-            'Content-Type': 'application/json'
-        },
+        "headers": {},
         "timeout": 7000,
-        "context": "/database/",
+        "context": "http://localhost:30000/database/",
         "request": config => config,
         "success": (data, doback) => doback(data),
         "error": (error, doback) => doback(error)

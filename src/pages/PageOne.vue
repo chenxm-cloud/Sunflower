@@ -10,6 +10,8 @@ export default {
     mounted:function(){
         clay.post()('index.json',{},function(data){
             console.log(data);
+        },function(error){
+            console.error(error);
         });
     }
 }
