@@ -3,21 +3,21 @@ import VueRouter from 'vue-router';
 
 Vue.use(VueRouter);
 
-import PageOne from '../pages/PageOne.vue';
-import PageTwo from '../pages/PageTwo.vue';
+import login_page from '../pages/login.vue';
+import main_page from '../pages/main.vue';
 
 const router = new VueRouter({
     routes: [{
         path: '/',
-        redirect: 'PageOneLink'
+        redirect: 'login'
     },
     {
-        path: '/PageOneLink',
-        component: PageOne
+        path: '/login',
+        component: login_page
     },
     {
-        path: '/PageTwoLink',
-        component: PageTwo
+        path: '/main',
+        component: main_page
     }
     ]
 });

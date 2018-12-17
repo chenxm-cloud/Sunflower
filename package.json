@@ -5,9 +5,8 @@
   "main": "build/main.js",
   "scripts": {
     "dev": "node_modules/.bin/webpack-dev-server --inline --hot --port 20000",
-    "server": "node server/index.js",
     "release": "node_modules/.bin/webpack",
-    "start": "npm run server"
+    "start": "npm run dev"
   },
   "repository": {
     "type": "git",
@@ -30,6 +29,7 @@
   "devDependencies": {
     "babel-core": "6.26.0",
     "babel-loader": "6.4.1",
+    "file-loader": "^2.0.0",
     "style-loader": "0.23.1",
     "vue-loader": "11.3.4",
     "vue-template-compiler": "2.5.21",
