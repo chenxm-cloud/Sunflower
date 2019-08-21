@@ -1,4 +1,4 @@
-# Sunflower - 基于[clay-core](https://github.com/yelloxing/clay-core)开发的数据可视化完整用例
+# Sunflower - 基于[clay-core](https://github.com/yelloxing/image2D)开发的数据可视化完整用例
 
 ### 基本说明
 
